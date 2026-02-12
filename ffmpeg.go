@@ -1,16 +1,19 @@
-// Package ffmpeg provides media device capture (audio/video) using FFmpeg as the backend.
+// Package mediadevices provides media device capture (audio/video) using FFmpeg (8.x) as the backend.
 // It discovers available capture devices on the system and provides readers for
 // raw video frames (image.YCbCr) and audio samples (PCM S16LE).
 //
+// Requires FFmpeg 8.x installed on the system. The ffmpeg binary is resolved via PATH
+// by default, or can be configured explicitly via SetConfig.
+//
 // Usage:
 //
-//	cfg := ffmpeg.GetConfig()
+//	cfg := mediadevices.GetConfig()
 //	cfg.FFmpegPath = "/usr/local/bin/ffmpeg"
-//	ffmpeg.SetConfig(cfg)
+//	mediadevices.SetConfig(cfg)
 //
-//	devices, err := ffmpeg.DiscoverDevices()
+//	devices, err := mediadevices.DiscoverDevices()
 //	// pick a video device, then:
-//	reader, err := ffmpeg.NewVideoReader(ffmpeg.VideoConfig{
+//	reader, err := mediadevices.NewVideoReader(mediadevices.VideoConfig{
 //	    Device:    devices[0],
 //	    Width:     1280,
 //	    Height:    720,

@@ -4,9 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-An FFmpeg-based Go implementation of media device handling, compatible with the [pion/mediadevices](https://github.com/pion/mediadevices/) interface. The goal is to provide media capture (audio/video) using FFmpeg as the backend while conforming to pion's mediadevices API.
+A self-contained Go library for media device capture (audio/video) using FFmpeg 8.x as the backend. Cross-platform support for Windows (dshow), Linux (v4l2/ALSA), and macOS (avfoundation).
 
 - **Module**: `github.com/hypercamio/mediadevices-ffmpeg-go`
+- **Package**: `mediadevices`
 - **Go version**: 1.25.0
 
 ## Build Commands
@@ -14,12 +15,11 @@ An FFmpeg-based Go implementation of media device handling, compatible with the 
 ```bash
 go build ./...       # Build all packages
 go test ./...        # Run all tests
-go test ./pkg/...    # Run tests for a specific package subtree
-go test -run TestFoo ./path/to/pkg  # Run a single test
+go test -run TestFoo .  # Run a single test
 go vet ./...         # Static analysis
 ```
 
-## Key Dependencies (Expected)
+## Key Dependencies
 
-- [pion/mediadevices](https://github.com/pion/mediadevices/) — the interface this library implements
-- FFmpeg — system-level dependency required at runtime; Go bindings TBD
+- FFmpeg 8.x — system-level dependency required at runtime (resolved via PATH by default)
+- No external Go dependencies — pure stdlib
