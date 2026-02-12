@@ -67,33 +67,41 @@ func main() {
 	}
 
 	// Discover available video devices
-	devices, err := mediadevices.VideoDevices()
+	devices, err := mediadevices.VideoInputDevices()
 	if err != nil {
 		log.Fatalf("Error discovering video devices: %s", err)
 	}
 	if len(devices) == 0 {
 		log.Fatal("No video devices found")
 	}
-	log.Printf("Using video device: %s", devices[0].Name)
+	log.Printf("Using video device: %s", devices[0].Label)
 
-	// Create a video reader from the first available device
-	reader, err := mediadevices.NewVideoReader(mediadevices.VideoConfig{
-		Device:    devices[0],
-		Width:     640,
-		Height:    480,
-		FrameRate: 30,
+	// Request video access using GetUserMedia
+	stream, err := mediadevices.GetUserMedia(mediadevices.MediaTrackConstraints{
+		Video: &mediadevices.VideoTrackConstraints{
+			Width:    mediadevices.IntPtr(640),
+			Height:   mediadevices.IntPtr(480),
+			FrameRate: mediadevices.Float64Ptr(30.0),
+		},
 	})
 	if err != nil {
-		log.Fatalf("Error creating video reader: %s", err)
+		log.Fatalf("Error creating video stream: %s", err)
 	}
-	defer reader.Close()
+	defer stream.Close()
+
+	// Get the first video track
+	videoTracks := stream.GetVideoTracks()
+	if len(videoTracks) == 0 {
+		log.Fatal("No video tracks found")
+	}
+	track := videoTracks[0]
 
 	// To save resources, we can simply use 4 fps to detect faces.
 	ticker := time.NewTicker(250 * time.Millisecond)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		frame, err := reader.Read()
+		frame, err := track.Read()
 		if err != nil {
 			log.Fatalf("Error reading video frame: %s", err)
 		}
