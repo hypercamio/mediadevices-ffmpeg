@@ -1,6 +1,6 @@
 //go:build windows
 
-package ffmpeg
+package mediadevices
 
 import (
 	"os/exec"

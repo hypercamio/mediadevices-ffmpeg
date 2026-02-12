@@ -1,6 +1,6 @@
 //go:build linux
 
-package ffmpeg
+package mediadevices
 
 import (
 	"bufio"

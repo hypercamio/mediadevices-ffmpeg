@@ -18,7 +18,7 @@
 //	})
 //	defer reader.Close()
 //	img, err := reader.Read()
-package ffmpeg
+package mediadevices
 
 import "sync"
 

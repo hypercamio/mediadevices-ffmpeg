@@ -1,4 +1,4 @@
-package ffmpeg
+package mediadevices
 
 // DiscoverDevices runs FFmpeg to enumerate available capture devices on the system.
 // It uses the platform-appropriate method (dshow on Windows, v4l2/ALSA on Linux,

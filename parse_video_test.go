@@ -1,4 +1,4 @@
-package ffmpeg
+package mediadevices
 
 import (
 	"image"
@@ -7,8 +7,8 @@ import (
 
 func TestParseYUV420pFrame(t *testing.T) {
 	width, height := 4, 2
-	ySize := width * height   // 8
-	cSize := ySize / 4        // 2
+	ySize := width * height      // 8
+	cSize := ySize / 4           // 2
 	totalSize := ySize + 2*cSize // 12
 
 	// Build known data: Y plane all 128, Cb all 64, Cr all 192.

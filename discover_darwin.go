@@ -1,6 +1,6 @@
 //go:build darwin
 
-package ffmpeg
+package mediadevices
 
 import (
 	"os/exec"

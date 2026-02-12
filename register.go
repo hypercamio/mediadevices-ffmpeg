@@ -1,4 +1,4 @@
-package ffmpeg
+package mediadevices
 
 import (
 	"log"
@@ -6,9 +6,9 @@ import (
 )
 
 var (
-	initOnce       sync.Once
-	cachedDevices  []Device
-	cachedDevErr   error
+	initOnce      sync.Once
+	cachedDevices []Device
+	cachedDevErr  error
 )
 
 // Initialize discovers available media devices using FFmpeg. It is safe to call

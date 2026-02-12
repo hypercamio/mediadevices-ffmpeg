@@ -1,4 +1,4 @@
-package ffmpeg
+package mediadevices
 
 // DeviceKind indicates whether a device captures video or audio.
 type DeviceKind int
