@@ -1,0 +1,35 @@
+# IDE
+.idea
+.vscode
+
+# Environment
+.env
+config.yaml
+settings.local.json
+
+# Build outputs
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.out
+*.test
+*.prof
+
+# Logs
+*.log
+
+# protobuf
+protobuf
+
+# node_modules
+node_modules
+
+# Git worktrees
+.worktrees/
+/server
+.claude/settings.local.json
+
+/tmp
