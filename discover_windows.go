@@ -18,15 +18,15 @@ var dshowAltRe = regexp.MustCompile(`\[dshow\s+@\s+\S+\]\s+"([^"]+)"`)
 // dshowSectionRe matches section headers like: [dshow @ 0x...] DirectShow video devices
 var dshowSectionRe = regexp.MustCompile(`\[dshow\s+@\s+\S+\]\s+DirectShow\s+(video|audio)\s+devices`)
 
-func discoverDevices(ffmpegPath string) ([]Device, error) {
+func discoverDevices(ffmpegPath string) ([]MediaDeviceInfo, error) {
 	cmd := exec.Command(ffmpegPath, "-list_devices", "true", "-f", "dshow", "-i", "dummy")
 	// FFmpeg writes device list to stderr and exits with error code; that's expected.
 	output, _ := cmd.CombinedOutput()
 	return parseDshowOutput(string(output)), nil
 }
 
-func parseDshowOutput(output string) []Device {
-	var devices []Device
+func parseDshowOutput(output string) []MediaDeviceInfo {
+	var devices []MediaDeviceInfo
 	lines := strings.Split(output, "\n")
 
 	// First try the explicit format: "Name" (video) / "Name" (audio)
@@ -36,14 +36,16 @@ func parseDshowOutput(output string) []Device {
 			continue
 		}
 		name := m[1]
-		kind := VideoDevice
+		kind := MediaDeviceKindVideoInput
 		if m[2] == "audio" {
-			kind = AudioDevice
+			kind = MediaDeviceKindAudioInput
 		}
-		devices = append(devices, Device{
-			Name: name,
-			ID:   name,
-			Kind: kind,
+		devices = append(devices, MediaDeviceInfo{
+			DeviceID:  name,
+			GroupID:   name, // dshow doesn't provide groupId, use name
+			Kind:      kind,
+			Label:     name,
+			IsDefault: false, // dshow doesn't indicate default
 		})
 	}
 
@@ -52,13 +54,13 @@ func parseDshowOutput(output string) []Device {
 	}
 
 	// Fallback: parse section headers + quoted device names
-	currentKind := VideoDevice
+	currentKind := MediaDeviceKindVideoInput
 	for _, line := range lines {
 		if sm := dshowSectionRe.FindStringSubmatch(line); sm != nil {
 			if sm[1] == "audio" {
-				currentKind = AudioDevice
+				currentKind = MediaDeviceKindAudioInput
 			} else {
-				currentKind = VideoDevice
+				currentKind = MediaDeviceKindVideoInput
 			}
 			continue
 		}
@@ -68,10 +70,12 @@ func parseDshowOutput(output string) []Device {
 			if strings.Contains(line, "Alternative name") {
 				continue
 			}
-			devices = append(devices, Device{
-				Name: name,
-				ID:   name,
-				Kind: currentKind,
+			devices = append(devices, MediaDeviceInfo{
+				DeviceID:  name,
+				GroupID:   name,
+				Kind:      currentKind,
+				Label:     name,
+				IsDefault: false,
 			})
 		}
 	}

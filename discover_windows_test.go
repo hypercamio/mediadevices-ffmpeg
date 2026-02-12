@@ -22,25 +22,25 @@ dummy: Immediate exit requested
 	}
 
 	// Video devices.
-	if devices[0].Name != "Integrated Camera" || devices[0].Kind != VideoDevice {
+	if devices[0].Label != "Integrated Camera" || devices[0].Kind != MediaDeviceKindVideoInput {
 		t.Errorf("devices[0] = %+v, want Integrated Camera video", devices[0])
 	}
-	if devices[1].Name != "OBS Virtual Camera" || devices[1].Kind != VideoDevice {
+	if devices[1].Label != "OBS Virtual Camera" || devices[1].Kind != MediaDeviceKindVideoInput {
 		t.Errorf("devices[1] = %+v, want OBS Virtual Camera video", devices[1])
 	}
 
 	// Audio devices.
-	if devices[2].Name != "Microphone (Realtek Audio)" || devices[2].Kind != AudioDevice {
+	if devices[2].Label != "Microphone (Realtek Audio)" || devices[2].Kind != MediaDeviceKindAudioInput {
 		t.Errorf("devices[2] = %+v, want Microphone audio", devices[2])
 	}
-	if devices[3].Name != "Stereo Mix (Realtek Audio)" || devices[3].Kind != AudioDevice {
+	if devices[3].Label != "Stereo Mix (Realtek Audio)" || devices[3].Kind != MediaDeviceKindAudioInput {
 		t.Errorf("devices[3] = %+v, want Stereo Mix audio", devices[3])
 	}
 
-	// IDs should equal names for dshow.
+	// DeviceIDs should equal Labels for dshow.
 	for _, d := range devices {
-		if d.ID != d.Name {
-			t.Errorf("device %q: ID = %q, want same as Name", d.Name, d.ID)
+		if d.DeviceID != d.Label {
+			t.Errorf("device %q: DeviceID = %q, want same as Label", d.Label, d.DeviceID)
 		}
 	}
 }
@@ -59,10 +59,10 @@ func TestParseDshowOutput_AltFormat(t *testing.T) {
 	if len(devices) != 2 {
 		t.Fatalf("got %d devices, want 2", len(devices))
 	}
-	if devices[0].Name != "USB Camera" || devices[0].Kind != VideoDevice {
+	if devices[0].Label != "USB Camera" || devices[0].Kind != MediaDeviceKindVideoInput {
 		t.Errorf("devices[0] = %+v", devices[0])
 	}
-	if devices[1].Name != "Built-in Mic" || devices[1].Kind != AudioDevice {
+	if devices[1].Label != "Built-in Mic" || devices[1].Kind != MediaDeviceKindAudioInput {
 		t.Errorf("devices[1] = %+v", devices[1])
 	}
 }

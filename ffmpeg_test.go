@@ -42,19 +42,3 @@ func TestSetConfig_EmptyPathDefaults(t *testing.T) {
 		t.Errorf("empty FFmpegPath should default to %q, got %q", "ffmpeg", cfg.FFmpegPath)
 	}
 }
-
-func TestDeviceKindString(t *testing.T) {
-	tests := []struct {
-		kind DeviceKind
-		want string
-	}{
-		{VideoDevice, "video"},
-		{AudioDevice, "audio"},
-		{DeviceKind(99), "unknown"},
-	}
-	for _, tt := range tests {
-		if got := tt.kind.String(); got != tt.want {
-			t.Errorf("DeviceKind(%d).String() = %q, want %q", tt.kind, got, tt.want)
-		}
-	}
-}

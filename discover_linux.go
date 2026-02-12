@@ -14,8 +14,8 @@ import (
 // cardRe matches lines from /proc/asound/cards like: " 0 [PCH            ]: HDA-Intel - HDA Intel PCH"
 var cardRe = regexp.MustCompile(`^\s*(\d+)\s+\[`)
 
-func discoverDevices(ffmpegPath string) ([]Device, error) {
-	var devices []Device
+func discoverDevices(ffmpegPath string) ([]MediaDeviceInfo, error) {
+	var devices []MediaDeviceInfo
 
 	videoDevs, err := discoverV4L2Devices()
 	if err == nil {
@@ -30,13 +30,13 @@ func discoverDevices(ffmpegPath string) ([]Device, error) {
 	return devices, nil
 }
 
-func discoverV4L2Devices() ([]Device, error) {
+func discoverV4L2Devices() ([]MediaDeviceInfo, error) {
 	matches, err := filepath.Glob("/dev/video*")
 	if err != nil {
 		return nil, err
 	}
 
-	var devices []Device
+	var devices []MediaDeviceInfo
 	for _, path := range matches {
 		// Only include devices we can open.
 		f, err := os.Open(path)
@@ -46,24 +46,25 @@ func discoverV4L2Devices() ([]Device, error) {
 		f.Close()
 
 		name := filepath.Base(path)
-		devices = append(devices, Device{
-			Name:      name,
-			ID:        path,
-			Kind:      VideoDevice,
+		devices = append(devices, MediaDeviceInfo{
+			DeviceID:  path,
+			GroupID:   path, // v4l2 doesn't provide groupId
+			Kind:      MediaDeviceKindVideoInput,
+			Label:     name,
 			IsDefault: path == "/dev/video0",
 		})
 	}
 	return devices, nil
 }
 
-func discoverALSADevices() ([]Device, error) {
+func discoverALSADevices() ([]MediaDeviceInfo, error) {
 	f, err := os.Open("/proc/asound/cards")
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	var devices []Device
+	var devices []MediaDeviceInfo
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -78,10 +79,11 @@ func discoverALSADevices() ([]Device, error) {
 			name = strings.TrimSpace(name[idx+3:])
 		}
 
-		devices = append(devices, Device{
-			Name:      name,
-			ID:        fmt.Sprintf("hw:%s", cardNum),
-			Kind:      AudioDevice,
+		devices = append(devices, MediaDeviceInfo{
+			DeviceID:  fmt.Sprintf("hw:%s", cardNum),
+			GroupID:   fmt.Sprintf("hw:%s", cardNum), // ALSA doesn't provide separate groupId
+			Kind:      MediaDeviceKindAudioInput,
+			Label:     name,
 			IsDefault: cardNum == "0",
 		})
 	}

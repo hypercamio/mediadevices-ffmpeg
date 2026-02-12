@@ -6,21 +6,6 @@ import (
 	"io"
 )
 
-// VideoConfig configures video capture from a device.
-type VideoConfig struct {
-	// Device is the capture device to use.
-	Device Device
-
-	// Width is the desired frame width in pixels. 0 = device default.
-	Width int
-
-	// Height is the desired frame height in pixels. 0 = device default.
-	Height int
-
-	// FrameRate is the desired capture frame rate. 0 = device default.
-	FrameRate float64
-}
-
 // VideoReader reads raw video frames from an FFmpeg subprocess.
 // Each call to Read() returns one YUV420p frame as an *image.YCbCr.
 type VideoReader struct {
@@ -31,21 +16,18 @@ type VideoReader struct {
 	frameSize int
 }
 
-// NewVideoReader starts an FFmpeg subprocess to capture video from the given device.
-// The caller must call Close() when done to stop the subprocess.
-func NewVideoReader(cfg VideoConfig) (*VideoReader, error) {
-	if cfg.Device.Kind != VideoDevice {
-		return nil, fmt.Errorf("ffmpeg: device %q is not a video device", cfg.Device.Name)
-	}
-	if cfg.Width <= 0 || cfg.Height <= 0 {
-		return nil, fmt.Errorf("ffmpeg: video width and height must be positive (got %dx%d)", cfg.Width, cfg.Height)
+// newVideoReaderInternal starts an FFmpeg subprocess to capture video from the given device.
+// This is an internal function used by MediaStreamTrack.
+func newVideoReaderInternal(deviceID string, width, height int, frameRate float64) (*VideoReader, error) {
+	if width <= 0 || height <= 0 {
+		return nil, fmt.Errorf("ffmpeg: video width and height must be positive (got %dx%d)", width, height)
 	}
 
 	params := VideoCaptureParams{
-		DeviceID:  cfg.Device.ID,
-		Width:     cfg.Width,
-		Height:    cfg.Height,
-		FrameRate: cfg.FrameRate,
+		DeviceID:  deviceID,
+		Width:     width,
+		Height:    height,
+		FrameRate: frameRate,
 	}
 
 	args := buildVideoCaptureArgs(params)
@@ -56,13 +38,13 @@ func NewVideoReader(cfg VideoConfig) (*VideoReader, error) {
 		return nil, fmt.Errorf("ffmpeg: start video capture: %w", err)
 	}
 
-	frameSize := cfg.Width * cfg.Height * 3 / 2 // YUV420p
+	frameSize := width * height * 3 / 2 // YUV420p
 
 	return &VideoReader{
 		proc:      proc,
 		buf:       make([]byte, frameSize),
-		width:     cfg.Width,
-		height:    cfg.Height,
+		width:     width,
+		height:    height,
 		frameSize: frameSize,
 	}, nil
 }
@@ -92,4 +74,14 @@ func (r *VideoReader) Close() error {
 		return r.proc.Stop()
 	}
 	return nil
+}
+
+// Width returns the video width in pixels.
+func (r *VideoReader) Width() int {
+	return r.width
+}
+
+// Height returns the video height in pixels.
+func (r *VideoReader) Height() int {
+	return r.height
 }

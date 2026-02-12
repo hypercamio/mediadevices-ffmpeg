@@ -6,22 +6,6 @@ import (
 	"time"
 )
 
-// AudioConfig configures audio capture from a device.
-type AudioConfig struct {
-	// Device is the capture device to use.
-	Device Device
-
-	// SampleRate is the desired sample rate in Hz (e.g., 48000, 44100). 0 = device default.
-	SampleRate int
-
-	// Channels is the desired number of channels (1 = mono, 2 = stereo). 0 = device default.
-	Channels int
-
-	// Latency is the desired chunk duration. Smaller values mean lower latency
-	// but more overhead per chunk. Defaults to 20ms if zero.
-	Latency time.Duration
-}
-
 // AudioReader reads raw audio chunks from an FFmpeg subprocess.
 // Each call to Read() returns one chunk of interleaved PCM S16LE samples.
 type AudioReader struct {
@@ -32,28 +16,19 @@ type AudioReader struct {
 	samplesPerChannel int
 }
 
-// NewAudioReader starts an FFmpeg subprocess to capture audio from the given device.
-// The caller must call Close() when done to stop the subprocess.
-func NewAudioReader(cfg AudioConfig) (*AudioReader, error) {
-	if cfg.Device.Kind != AudioDevice {
-		return nil, fmt.Errorf("ffmpeg: device %q is not an audio device", cfg.Device.Name)
-	}
-
-	sampleRate := cfg.SampleRate
+// newAudioReaderInternal starts an FFmpeg subprocess to capture audio from the given device.
+// This is an internal function used by MediaStreamTrack.
+func newAudioReaderInternal(deviceID string, sampleRate, channels int) (*AudioReader, error) {
 	if sampleRate <= 0 {
 		sampleRate = 48000
 	}
-	channels := cfg.Channels
 	if channels <= 0 {
 		channels = 2
 	}
-	latency := cfg.Latency
-	if latency <= 0 {
-		latency = 20 * time.Millisecond
-	}
+	latency := 20 * time.Millisecond
 
 	params := AudioCaptureParams{
-		DeviceID:   cfg.Device.ID,
+		DeviceID:   deviceID,
 		SampleRate: sampleRate,
 		Channels:   channels,
 	}
@@ -105,4 +80,14 @@ func (r *AudioReader) Close() error {
 		return r.proc.Stop()
 	}
 	return nil
+}
+
+// SampleRate returns the audio sample rate in Hz.
+func (r *AudioReader) SampleRate() int {
+	return r.sampleRate
+}
+
+// Channels returns the number of audio channels.
+func (r *AudioReader) Channels() int {
+	return r.channels
 }
