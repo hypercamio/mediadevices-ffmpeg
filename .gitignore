@@ -33,3 +33,7 @@ node_modules
 .claude/settings.local.json
 
 /tmp
+
+# Go workspace
+go.work
+go.work.sum
