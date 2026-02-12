@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A self-contained Go library for media device capture (audio/video) using FFmpeg 8.x as the backend. Cross-platform support for Windows (dshow), Linux (v4l2/ALSA), and macOS (avfoundation).
 
-- **Module**: `github.com/hypercamio/mediadevices-ffmpeg-go`
+- **Module**: `github.com/hypercamio/mediadevices-ffmpeg`
 - **Package**: `mediadevices`
 - **Go version**: 1.25.0
 

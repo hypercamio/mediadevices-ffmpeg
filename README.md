@@ -1,4 +1,4 @@
-# mediadevices-ffmpeg-go
+# mediadevices-ffmpeg
 
 A self-contained Go library for media device capture (audio/video) using FFmpeg as the backend. Cross-platform support for Windows (DirectShow), Linux (V4L2/ALSA), and macOS (AVFoundation).
 
@@ -13,7 +13,7 @@ Designed to follow the [MDN MediaDevices Web API](https://developer.mozilla.org/
 ## Installation
 
 ```bash
-go get github.com/hypercamio/mediadevices-ffmpeg-go
+go get github.com/hypercamio/mediadevices-ffmpeg
 ```
 
 ## Quick Start
@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"log"
 
-	mediadevices "github.com/hypercamio/mediadevices-ffmpeg-go"
+	mediadevices "github.com/hypercamio/mediadevices-ffmpeg"
 )
 
 func main() {

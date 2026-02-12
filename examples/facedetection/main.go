@@ -7,7 +7,7 @@ import (
 	"time"
 
 	pigo "github.com/esimov/pigo/core"
-	"github.com/hypercamio/mediadevices-ffmpeg-go"
+	"github.com/hypercamio/mediadevices-ffmpeg"
 )
 
 const (

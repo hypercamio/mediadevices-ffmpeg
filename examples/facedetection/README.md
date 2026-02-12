@@ -1,6 +1,6 @@
 ## Face Detection Example
 
-Real-time face detection using [mediadevices-ffmpeg-go](https://github.com/hypercamio/mediadevices-ffmpeg-go) for video capture and [pigo](https://github.com/esimov/pigo) for face detection.
+Real-time face detection using [mediadevices-ffmpeg](https://github.com/hypercamio/mediadevices-ffmpeg) for video capture and [pigo](https://github.com/esimov/pigo) for face detection.
 
 ### Prerequisites
 
