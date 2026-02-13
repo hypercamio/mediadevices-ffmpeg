@@ -3,9 +3,12 @@
 package mediadevices
 
 import (
+	"crypto/sha256"
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 // dshowDeviceRe matches lines like: [dshow @ 0x...] "Device Name" (video)
@@ -25,6 +28,19 @@ func discoverDevices(ffmpegPath string) ([]MediaDeviceInfo, error) {
 	return parseDshowOutput(string(output)), nil
 }
 
+// generateDeviceUUID generates a deterministic UUID from a device name.
+// This ensures the same device always gets the same UUID across restarts.
+func generateDeviceUUID(name string) uuid.UUID {
+	hash := sha256.Sum256([]byte(name))
+	// Use first 16 bytes of SHA256 hash to create UUID v5 style
+	return uuid.UUID{
+		hash[0], hash[1], hash[2], hash[3],
+		hash[4], hash[5], hash[6], hash[7],
+		hash[8], hash[9], hash[10], hash[11],
+		hash[12], hash[13], hash[14], hash[15],
+	}
+}
+
 func parseDshowOutput(output string) []MediaDeviceInfo {
 	var devices []MediaDeviceInfo
 	lines := strings.Split(output, "\n")
@@ -41,8 +57,8 @@ func parseDshowOutput(output string) []MediaDeviceInfo {
 			kind = MediaDeviceKindAudioInput
 		}
 		devices = append(devices, MediaDeviceInfo{
-			DeviceID:  name,
-			GroupID:   name, // dshow doesn't provide groupId, use name
+			DeviceID:  generateDeviceUUID(name).String(),
+			GroupID:   name, // dshow doesn't provide groupId, use name for grouping
 			Kind:      kind,
 			Label:     name,
 			IsDefault: false, // dshow doesn't indicate default
@@ -71,7 +87,7 @@ func parseDshowOutput(output string) []MediaDeviceInfo {
 				continue
 			}
 			devices = append(devices, MediaDeviceInfo{
-				DeviceID:  name,
+				DeviceID:  generateDeviceUUID(name).String(),
 				GroupID:   name,
 				Kind:      currentKind,
 				Label:     name,
