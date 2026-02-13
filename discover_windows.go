@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/denisbrodbeck/machineid"
 	"github.com/google/uuid"
 )
 
@@ -29,11 +30,25 @@ func discoverDevices(ffmpegPath string) ([]MediaDeviceInfo, error) {
 	return parseDshowOutput(string(output)), nil
 }
 
-// generateDeviceUUID generates a deterministic UUID from device name and kind.
-// This ensures the same device always gets the same UUID across restarts.
+// getMachineID returns the unique machine ID for this device.
+func getMachineID() string {
+	id, err := machineid.ID()
+	if err != nil {
+		// Fallback to a constant if machine ID cannot be obtained
+		return "unknown"
+	}
+	return id
+}
+
+// machineID is cached at package init
+var cachedMachineID = getMachineID()
+
+// generateDeviceUUID generates a deterministic UUID from machine ID, device name and kind.
+// This ensures the same device on the same machine always gets the same UUID,
+// while devices on different machines get different UUIDs even with identical names.
 func generateDeviceUUID(name string, kind MediaDeviceKind) uuid.UUID {
-	// Include kind in the hash to differentiate devices with same name but different types
-	input := fmt.Sprintf("%s:%s", name, kind)
+	// Include machine ID, device name, and kind in the hash
+	input := fmt.Sprintf("%s:%s:%s", cachedMachineID, name, kind)
 	hash := sha256.Sum256([]byte(input))
 	// Use first 16 bytes of SHA256 hash to create UUID v5 style
 	return uuid.UUID{
