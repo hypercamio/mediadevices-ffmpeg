@@ -4,6 +4,7 @@ package mediadevices
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -28,10 +29,12 @@ func discoverDevices(ffmpegPath string) ([]MediaDeviceInfo, error) {
 	return parseDshowOutput(string(output)), nil
 }
 
-// generateDeviceUUID generates a deterministic UUID from a device name.
+// generateDeviceUUID generates a deterministic UUID from device name and kind.
 // This ensures the same device always gets the same UUID across restarts.
-func generateDeviceUUID(name string) uuid.UUID {
-	hash := sha256.Sum256([]byte(name))
+func generateDeviceUUID(name string, kind MediaDeviceKind) uuid.UUID {
+	// Include kind in the hash to differentiate devices with same name but different types
+	input := fmt.Sprintf("%s:%s", name, kind)
+	hash := sha256.Sum256([]byte(input))
 	// Use first 16 bytes of SHA256 hash to create UUID v5 style
 	return uuid.UUID{
 		hash[0], hash[1], hash[2], hash[3],
@@ -45,6 +48,9 @@ func parseDshowOutput(output string) []MediaDeviceInfo {
 	var devices []MediaDeviceInfo
 	lines := strings.Split(output, "\n")
 
+	// Track seen name+kind combinations to handle potential duplicates
+	seenDeviceKeys := make(map[string]int)
+
 	// First try the explicit format: "Name" (video) / "Name" (audio)
 	for _, line := range lines {
 		m := dshowDeviceRe.FindStringSubmatch(line)
@@ -56,8 +62,17 @@ func parseDshowOutput(output string) []MediaDeviceInfo {
 		if m[2] == "audio" {
 			kind = MediaDeviceKindAudioInput
 		}
+		// Generate unique key for this name+kind combination
+		deviceKey := fmt.Sprintf("%s:%s", name, kind)
+		seenDeviceKeys[deviceKey]++
+		// If duplicate, append index to ensure unique UUID
+		uniqueKey := deviceKey
+		if seenDeviceKeys[deviceKey] > 1 {
+			uniqueKey = fmt.Sprintf("%s:%d", deviceKey, seenDeviceKeys[deviceKey])
+		}
+		deviceID := generateDeviceUUID(uniqueKey).String()
 		devices = append(devices, MediaDeviceInfo{
-			DeviceID:  generateDeviceUUID(name).String(),
+			DeviceID:  deviceID,
 			GroupID:   name, // dshow doesn't provide groupId, use name for grouping
 			Kind:      kind,
 			Label:     name,
@@ -86,8 +101,16 @@ func parseDshowOutput(output string) []MediaDeviceInfo {
 			if strings.Contains(line, "Alternative name") {
 				continue
 			}
+			// Generate unique key with kind and seen count
+			deviceKey := fmt.Sprintf("%s:%s", name, currentKind)
+			seenDeviceKeys[deviceKey]++
+			uniqueKey := deviceKey
+			if seenDeviceKeys[deviceKey] > 1 {
+				uniqueKey = fmt.Sprintf("%s:%d", deviceKey, seenDeviceKeys[deviceKey])
+			}
+			deviceID := generateDeviceUUID(uniqueKey).String()
 			devices = append(devices, MediaDeviceInfo{
-				DeviceID:  generateDeviceUUID(name).String(),
+				DeviceID:  deviceID,
 				GroupID:   name,
 				Kind:      currentKind,
 				Label:     name,
