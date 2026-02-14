@@ -4,16 +4,25 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"time"
+)
+
+const (
+	// firstFrameTimeout is the maximum time to wait for the first frame.
+	firstFrameTimeout = 5 * time.Second
+	// firstFrameRetryInterval is the interval between retry attempts.
+	firstFrameRetryInterval = 50 * time.Millisecond
 )
 
 // VideoReader reads raw video frames from an FFmpeg subprocess.
 // Each call to Read() returns one YUV420p frame as an *image.YCbCr.
 type VideoReader struct {
-	proc      *ffmpegProcess
-	buf       []byte
-	width     int
-	height    int
-	frameSize int
+	proc       *ffmpegProcess
+	buf        []byte
+	width      int
+	height     int
+	frameSize  int
+	firstFrame bool
 }
 
 // newVideoReaderInternal starts an FFmpeg subprocess to capture video from the given device.
@@ -41,18 +50,48 @@ func newVideoReaderInternal(deviceID string, width, height int, frameRate float6
 	frameSize := width * height * 3 / 2 // YUV420p
 
 	return &VideoReader{
-		proc:      proc,
-		buf:       make([]byte, frameSize),
-		width:     width,
-		height:    height,
-		frameSize: frameSize,
+		proc:       proc,
+		buf:        make([]byte, frameSize),
+		width:      width,
+		height:     height,
+		frameSize:  frameSize,
+		firstFrame: true,
 	}, nil
 }
 
 // Read reads one video frame from the capture.
 // Returns an *image.YCbCr with YUV420p data.
 // Returns io.EOF when the stream ends.
+// For the first frame, it will retry with a timeout while FFmpeg initializes.
 func (r *VideoReader) Read() (image.Image, error) {
+	var lastErr error
+
+	// For the first frame, use retry logic to wait for FFmpeg to initialize
+	if r.firstFrame {
+		deadline := time.Now().Add(firstFrameTimeout)
+		for time.Now().Before(deadline) {
+			_, err := io.ReadFull(r.proc, r.buf)
+			if err == nil {
+				r.firstFrame = false
+				img, parseErr := parseYUV420pFrame(r.buf, r.width, r.height)
+				if parseErr != nil {
+					return nil, parseErr
+				}
+				return img, nil
+			}
+			lastErr = err
+			if err != io.EOF && err != io.ErrUnexpectedEOF {
+				// Real error, not just "no data yet"
+				return nil, fmt.Errorf("ffmpeg: read video frame: %w\nstderr: %s", err, r.proc.LastStderr())
+			}
+			// FFmpeg hasn't produced a frame yet, wait and retry
+			time.Sleep(firstFrameRetryInterval)
+		}
+		// Timeout reached
+		return nil, fmt.Errorf("ffmpeg: timeout waiting for first frame: %w\nstderr: %s", lastErr, r.proc.LastStderr())
+	}
+
+	// Normal read for subsequent frames
 	_, err := io.ReadFull(r.proc, r.buf)
 	if err != nil {
 		if err == io.EOF || err == io.ErrUnexpectedEOF {

@@ -11,7 +11,10 @@ func buildVideoCaptureArgs(p VideoCaptureParams) []string {
 	// Input format
 	args = append(args, "-f", "dshow")
 
-	// Input options
+	// Input options (must be before -i)
+	// For MJPEG cameras, increase analyzeduration and probesize to properly detect stream parameters
+	args = append(args, "-analyzeduration", "10000000", "-probesize", "10000000")
+
 	if p.Width > 0 && p.Height > 0 {
 		args = append(args, "-video_size", fmt.Sprintf("%dx%d", p.Width, p.Height))
 	}

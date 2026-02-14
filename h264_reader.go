@@ -42,7 +42,8 @@ func (n *NALUnit) String() string {
 
 // H264ReaderConfig holds configuration for creating an H264 video reader.
 type H264ReaderConfig struct {
-	DeviceID    string
+	DeviceName  string // Original device name for FFmpeg (e.g., "USB2.0 HD UVC WebCam")
+	DeviceID    string // UUID (kept for backwards compatibility)
 	Width       int
 	Height      int
 	FrameRate   float64
@@ -56,9 +57,17 @@ type H264ReaderConfig struct {
 func buildH264Args(cfg H264ReaderConfig) []string {
 	args := []string{}
 
+	// Use DeviceName if available, otherwise fallback to DeviceID
+	deviceName := cfg.DeviceName
+	if deviceName == "" {
+		deviceName = cfg.DeviceID
+	}
+
 	// Input from DirectShow (Windows)
 	args = append(args, "-f", "dshow")
-	args = append(args, "-i", fmt.Sprintf("video=%s", cfg.DeviceID))
+	// For MJPEG cameras, increase analyzeduration and probesize to properly detect stream parameters
+	args = append(args, "-analyzeduration", "10000000", "-probesize", "10000000")
+	args = append(args, "-i", fmt.Sprintf("video=%s", deviceName))
 
 	// Video encoding settings
 	args = append(args, "-c:v", "libx264")
@@ -107,6 +116,10 @@ func buildH264Args(cfg H264ReaderConfig) []string {
 	args = append(args, "-an") // no audio
 	args = append(args, "-sn")  // no subtitles
 
+	// Ensure SPS/PPS are sent with every IDR frame for proper stream decoding
+	// This is critical for RTSP servers to properly announce the stream
+	args = append(args, "-x264-params", "repeatheaders=1")
+
 	// Output format: MPEG-TS over UDP for RTP compatibility
 	args = append(args, "-f", "mpegts")
 	args = append(args, "pipe:1")
@@ -123,8 +136,13 @@ type H264VideoReader struct {
 
 // newH264VideoReader creates a new H264VideoReader.
 func newH264VideoReader(cfg H264ReaderConfig) (*H264VideoReader, error) {
-	if cfg.DeviceID == "" {
-		return nil, fmt.Errorf("DeviceID is required")
+	// Use DeviceName if available, otherwise use DeviceID
+	deviceName := cfg.DeviceName
+	if deviceName == "" {
+		deviceName = cfg.DeviceID
+	}
+	if deviceName == "" {
+		return nil, fmt.Errorf("DeviceName or DeviceID is required")
 	}
 
 	args := buildH264Args(cfg)

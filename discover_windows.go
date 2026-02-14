@@ -85,13 +85,14 @@ func parseDshowOutput(output string) []MediaDeviceInfo {
 		if seenDeviceKeys[deviceKey] > 1 {
 			uniqueKey = fmt.Sprintf("%s:%d", deviceKey, seenDeviceKeys[deviceKey])
 		}
-		deviceID := generateDeviceUUID(uniqueKey).String()
+		deviceID := generateDeviceUUID(uniqueKey, kind).String()
 		devices = append(devices, MediaDeviceInfo{
-			DeviceID:  deviceID,
-			GroupID:   name, // dshow doesn't provide groupId, use name for grouping
-			Kind:      kind,
-			Label:     name,
-			IsDefault: false, // dshow doesn't indicate default
+			DeviceID:   deviceID,
+			DeviceName: name, // Original device name for FFmpeg
+			GroupID:    name, // dshow doesn't provide groupId, use name for grouping
+			Kind:       kind,
+			Label:      name,
+			IsDefault:  false, // dshow doesn't indicate default
 		})
 	}
 
@@ -123,13 +124,14 @@ func parseDshowOutput(output string) []MediaDeviceInfo {
 			if seenDeviceKeys[deviceKey] > 1 {
 				uniqueKey = fmt.Sprintf("%s:%d", deviceKey, seenDeviceKeys[deviceKey])
 			}
-			deviceID := generateDeviceUUID(uniqueKey).String()
+			deviceID := generateDeviceUUID(uniqueKey, currentKind).String()
 			devices = append(devices, MediaDeviceInfo{
-				DeviceID:  deviceID,
-				GroupID:   name,
-				Kind:      currentKind,
-				Label:     name,
-				IsDefault: false,
+				DeviceID:   deviceID,
+				DeviceName: name, // Original device name for FFmpeg
+				GroupID:    name,
+				Kind:       currentKind,
+				Label:      name,
+				IsDefault:  false,
 			})
 		}
 	}

@@ -18,11 +18,15 @@ const (
 // MediaDeviceInfo 表示单个媒体设备的信息，对应 MDN 的 MediaDeviceInfo 接口。
 // 包含设备的唯一标识、类型、标签等信息。
 type MediaDeviceInfo struct {
-	// DeviceID 是设备的唯一标识符。
-	// 在 Windows (dshow): 设备名称字符串。
-	// 在 Linux: 设备路径 (如 "/dev/video0") 或 ALSA ID (如 "hw:0,0")。
-	// 在 macOS (avfoundation): 设备索引字符串 (如 "0", "1")。
+	// DeviceID 是设备的唯一标识符（UUID格式）。
+	// 用于在应用中唯一标识设备。
 	DeviceID string
+
+	// DeviceName 是FFmpeg后端使用的原始设备名称。
+	// Windows (dshow): 设备名称字符串，如 "USB2.0 HD UVC WebCam"
+	// Linux: 设备路径，如 "/dev/video0" 或 ALSA ID 如 "hw:0,0"
+	// macOS (avfoundation): 设备索引字符串，如 "0", "1"
+	DeviceName string
 
 	// GroupID 是同属一个物理设备的组 ID。
 	// 相同物理设备的不同捕获点（如同一摄像头的不同焦距）会有相同的 GroupID。
@@ -43,11 +47,12 @@ type MediaDeviceInfo struct {
 // 适用于调试日志或与其他系统集成。
 func (m *MediaDeviceInfo) ToJSON() map[string]interface{} {
 	return map[string]interface{}{
-		"deviceId":  m.DeviceID,
-		"groupId":   m.GroupID,
-		"kind":      string(m.Kind),
-		"label":     m.Label,
-		"isDefault": m.IsDefault,
+		"deviceId":   m.DeviceID,
+		"deviceName": m.DeviceName,
+		"groupId":    m.GroupID,
+		"kind":       string(m.Kind),
+		"label":      m.Label,
+		"isDefault":  m.IsDefault,
 	}
 }
 

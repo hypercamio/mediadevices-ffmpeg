@@ -40,7 +40,12 @@ type MediaStreamTrack struct {
 
 // newVideoTrack 创建一个新的视频轨道。
 func newVideoTrack(deviceInfo MediaDeviceInfo, width, height int, frameRate float64) (*MediaStreamTrack, error) {
-	reader, err := newVideoReaderInternal(deviceInfo.DeviceID, width, height, frameRate)
+	// Use DeviceName if available (for FFmpeg), otherwise fallback to DeviceID
+	deviceName := deviceInfo.DeviceName
+	if deviceName == "" {
+		deviceName = deviceInfo.DeviceID
+	}
+	reader, err := newVideoReaderInternal(deviceName, width, height, frameRate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create video reader: %w", err)
 	}
@@ -56,7 +61,12 @@ func newVideoTrack(deviceInfo MediaDeviceInfo, width, height int, frameRate floa
 
 // newAudioTrack 创建一个新的音频轨道。
 func newAudioTrack(deviceInfo MediaDeviceInfo, sampleRate, channels int) (*MediaStreamTrack, error) {
-	reader, err := newAudioReaderInternal(deviceInfo.DeviceID, sampleRate, channels)
+	// Use DeviceName if available (for FFmpeg), otherwise fallback to DeviceID
+	deviceName := deviceInfo.DeviceName
+	if deviceName == "" {
+		deviceName = deviceInfo.DeviceID
+	}
+	reader, err := newAudioReaderInternal(deviceName, sampleRate, channels)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create audio reader: %w", err)
 	}
