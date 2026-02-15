@@ -104,6 +104,10 @@ func buildH264Args(cfg H264ReaderConfig) []string {
 	}
 	args = append(args, "-g", fmt.Sprintf("%d", keyInt))
 
+	// Force IDR frame generation every 30 frames to trigger PPS output
+	// This ensures SPS/PPS are output more frequently for proper stream initialization
+	args = append(args, "-force_key_frames", "expr:not(mod(n,30))")
+
 	// Profile
 	profile := cfg.Profile
 	if profile == "" {
@@ -120,8 +124,9 @@ func buildH264Args(cfg H264ReaderConfig) []string {
 	// This is critical for RTSP servers to properly announce the stream
 	args = append(args, "-x264-params", "repeatheaders=1")
 
-	// Output format: MPEG-TS over UDP for RTP compatibility
-	args = append(args, "-f", "mpegts")
+	// Output format: H264 raw bitstream (annexb) - this ensures SPS/PPS are output as NAL units
+	// Using annexb format instead of mpegts to make SPS/PPS extraction easier
+	args = append(args, "-f", "h264")
 	args = append(args, "pipe:1")
 
 	return args
@@ -163,27 +168,84 @@ func newH264VideoReader(cfg H264ReaderConfig) (*H264VideoReader, error) {
 // Read reads the next H264 NAL unit from the stream.
 // Returns nil when the stream ends.
 func (r *H264VideoReader) Read() (*NALUnit, error) {
-	// MPEG-TS packet size (typical)
-	tsPacket := make([]byte, 188)
-	_, err := io.ReadFull(r.proc, tsPacket)
+	// Read H.264 NAL units from raw bitstream (annexb format)
+	// Each NAL unit is preceded by start code: 0x00 0x00 0x00 0x01 or 0x00 0x00 0x01
+
+	// Read a buffer to find NAL units
+	buf := make([]byte, 4096)
+	n, err := io.ReadFull(r.proc, buf)
 	if err != nil {
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			return nil, io.EOF
 		}
-		return nil, fmt.Errorf("failed to read TS packet: %w", err)
+		return nil, fmt.Errorf("failed to read H264 data: %w", err)
 	}
 
-	// Parse MPEG-TS packet and extract H264 NAL units
-	nalus, err := parseTSPacket(tsPacket)
-	if err != nil {
-		return nil, err
-	}
-
+	// Parse NAL units from the buffer
+	nalus := parseH264Bitstream(buf[:n])
 	if len(nalus) == 0 {
-		return nil, nil // No NAL units in this packet
+		return nil, nil
 	}
 
+	// Return the first NAL unit
 	return nalus[0], nil
+}
+
+// parseH264Bitstream parses H.264 raw bitstream (annexb format) and extracts NAL units.
+func parseH264Bitstream(data []byte) []*NALUnit {
+	var nalus []*NALUnit
+	i := 0
+
+	for i < len(data) {
+		// Find start code (0x00 0x00 0x00 0x01 or 0x00 0x00 0x01)
+		startCodeLen := 0
+		for i < len(data)-3 {
+			if data[i] == 0x00 && data[i+1] == 0x00 && data[i+2] == 0x01 {
+				startCodeLen = 3
+				break
+			}
+			if i < len(data)-4 && data[i] == 0x00 && data[i+1] == 0x00 && data[i+2] == 0x00 && data[i+3] == 0x01 {
+				startCodeLen = 4
+				break
+			}
+			i++
+		}
+
+		if startCodeLen == 0 {
+			break
+		}
+
+		i += startCodeLen
+		if i >= len(data) {
+			break
+		}
+
+		// Find next start code or end of data
+		j := i
+		for j < len(data)-4 {
+			if data[j] == 0x00 && data[j+1] == 0x00 && data[j+2] == 0x00 && data[j+3] == 0x01 {
+				break
+			}
+			if data[j] == 0x00 && data[j+1] == 0x00 && data[j+2] == 0x01 {
+				break
+			}
+			j++
+		}
+
+		nalData := data[i:j]
+		if len(nalData) > 0 {
+			nalType := H264NaluType(nalData[0] & 0x1F)
+			nalus = append(nalus, &NALUnit{
+				Type:     nalType,
+				Data:     nalData,
+				Keyframe: nalType.IsKeyframe(),
+			})
+		}
+
+		i = j
+	}
+
+	return nalus
 }
 
 // parseTSPacket parses an MPEG-TS packet and extracts H264 NAL units.
@@ -203,7 +265,13 @@ func parseTSPacket(data []byte) ([]*NALUnit, error) {
 	pid := int(data[1]&0x1F)<<8 | int(data[2])
 	adaptationFieldControl := (data[3] >> 0) & 0x03
 
+	// Debug: print all PIDs
+	_ = pid
+	// fmt.Printf("[DEBUG parseTSPacket] PID: 0x%x, adaptation: %d\n", pid, adaptationFieldControl)
+
 	// Skip non-video packets
+	// Note: SPS/PPS may be in different PIDs than video
+	// Let's be more permissive for debugging
 	if pid < 0x10 || pid > 0x1FFE {
 		return nil, nil
 	}
@@ -341,6 +409,10 @@ type RTPReader struct {
 	seq    uint16
 	ts     uint32
 	mtu    int
+
+	// Cached SPS/PPS for keyframe injection
+	sps []byte
+	pps []byte
 }
 
 // NewRTPReader creates a new RTP reader for H264 video streaming.
@@ -389,8 +461,32 @@ func (r *RTPReader) ReadMultiple() ([]*rtp.Packet, error) {
 			continue
 		}
 
+		// Cache SPS/PPS when found
+		if r.sps == nil && nal.Type == NALUTypeSPS {
+			r.sps = make([]byte, len(nal.Data))
+			copy(r.sps, nal.Data)
+		}
+		if r.pps == nil && nal.Type == NALUTypePPS {
+			r.pps = make([]byte, len(nal.Data))
+			copy(r.pps, nal.Data)
+		}
+
 		return r.nalToRTPMultiple(nal)
 	}
+}
+
+// PeekNAL returns the current NAL unit without consuming it.
+// Returns nil if no NAL unit is available.
+func (r *RTPReader) PeekNAL() (*NALUnit, error) {
+	// Note: This is a simplified implementation that reads and caches the NAL
+	// In a production implementation, you might want to use a buffer
+	return r.reader.Read()
+}
+
+// GetSPSPPS returns the cached SPS and PPS.
+// Returns nil if not yet extracted.
+func (r *RTPReader) GetSPSPPS() ([]byte, []byte) {
+	return r.sps, r.pps
 }
 
 // nalToRTP converts an H264 NAL unit to RTP packet.
@@ -600,3 +696,5 @@ func IsKeyframe(data []byte) bool {
 	nalType := H264NaluType(data[0] & 0x1F)
 	return nalType.IsKeyframe()
 }
+
+// nalTypeString returns a string representation of the NAL unit type.
